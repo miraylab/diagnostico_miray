@@ -1026,28 +1026,96 @@ section.hero::after {
    RESPONSIVE (somente tela — evita que impressão/PDF herdem layout “mobile”)
 ───────────────────────────────────────────── */
 @media screen and (max-width: 768px) {
-  .summary-inner { grid-template-columns: 1fr; gap: 40px; }
-  .cta-inner { min-height: auto; gap: 48px; }
-  .cta-right { grid-template-columns: 1fr; }
-  .cta-features { grid-template-columns: 1fr; }
-  .hero-stats { flex-direction: column; }
-  .hero-stat { border-right: none; border-bottom: 1px solid var(--border); }
-  .hero-stat:last-child { border-bottom: none; }
-  .axis-label-y, .axis-label-x { display: none; }
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    background: var(--bg);
+  }
+
+  body {
+    --mobile-page-scale: 1;
+    --mobile-page-flow-offset: 0px;
+    --mobile-page-gap: 14px;
+    padding: 8px 0;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  section {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    margin: 0 8px calc(var(--mobile-page-flow-offset) + var(--mobile-page-gap)) !important;
+    padding: 18mm 12mm 24mm 12mm !important;
+    overflow: hidden !important;
+    transform: scale(var(--mobile-page-scale));
+    transform-origin: top left;
+    background: var(--bg);
+  }
+
+  section:last-of-type {
+    margin-bottom: var(--mobile-page-flow-offset) !important;
+  }
+
+  .hero-glow,
+  .hero-grid,
+  .cta-glow,
+  .bottleneck-card::before,
+  .cta-btn::before {
+    display: none !important;
+  }
+
+  .summary-section > .wrap {
+    min-height: calc(297mm - 18mm - 24mm);
+  }
+
+  .summary-inner {
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+    gap: 6mm 8mm;
+  }
+
+  .cta-inner { min-height: calc(297mm - 18mm - 24mm); gap: 28px; }
+  .cta-right { grid-template-columns: 1fr; min-height: 108mm; }
+  .cta-features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hero-stats { flex-direction: row; flex-wrap: nowrap; }
+  .hero-stat {
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+  }
+  .hero-stat:last-child {
+    border-right: none;
+    border-bottom: none;
+  }
+  .axis-label-y, .axis-label-x { display: flex; }
   .matrix-chart-inner {
-    grid-template-columns: 1fr;
-    gap: 6px 0;
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 4px 10px;
   }
   .chart-canvas-wrap {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
-    min-height: 300px;
-    height: clamp(300px, 58vh, 560px);
+    min-height: 540px;
+    height: 168mm;
   }
   .matrix-legend {
-    grid-column: 1;
-    grid-row: 2;
-    padding: 10px 4px 6px;
+    padding: 12px 16px;
+  }
+
+  .bottleneck-grid,
+  .opp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
   }
 }
 
@@ -1337,7 +1405,7 @@ section.hero::after {
 
 const REPORT_DATA = __REPORT_DATA__;
 
-const REPORT = REPORT_DATA[0];
+const REPORT = REPORT_DATA[0].report || REPORT_DATA[0];
 const COMPANY_LOGO = REPORT.cover.clientLogoUrl;
 const COMPANY_NAME = REPORT.cover.companyName;
 const COMPANY_DATE = REPORT.cover.reportDate;
@@ -1699,12 +1767,15 @@ function init() {
   renderOppCards();
 
   // chart
-  initChart();
+  if (typeof Chart !== 'undefined') {
+    initChart();
+  }
 
   // paginacao A4 para conteudos longos
   paginateGridSection('#bottleneckGrid', '.bottleneck-card');
   paginateGridSection('#oppGrid', '.opp-card');
   renderPageNumbers();
+  syncMobilePageScale();
 }
 
 function paginateGridSection(gridSelector, itemSelector) {
@@ -1759,6 +1830,34 @@ function renderPageNumbers() {
     page.appendChild(marker);
   });
 }
+
+function syncMobilePageScale() {
+  const firstPage = document.querySelector('section');
+  if (!firstPage) return;
+
+  const root = document.body || document.documentElement;
+  if (!window.matchMedia('(max-width: 768px)').matches) {
+    root.style.removeProperty('--mobile-page-scale');
+    root.style.removeProperty('--mobile-page-flow-offset');
+    return;
+  }
+
+  const availableWidth = Math.max(320, window.innerWidth - 16);
+  const pageWidth = firstPage.offsetWidth;
+  const pageHeight = firstPage.offsetHeight;
+  const scale = Math.min(1, availableWidth / pageWidth);
+  const flowOffset = (pageHeight * scale) - pageHeight;
+
+  root.style.setProperty('--mobile-page-scale', scale.toFixed(4));
+  root.style.setProperty('--mobile-page-flow-offset', `${flowOffset.toFixed(2)}px`);
+
+  if (window.__matrixChart && typeof window.__matrixChart.resize === 'function') {
+    window.__matrixChart.resize();
+  }
+}
+
+window.addEventListener('resize', syncMobilePageScale);
+window.addEventListener('orientationchange', syncMobilePageScale);
 
 function renderOppCards() {
   const grid = document.getElementById('oppGrid');
