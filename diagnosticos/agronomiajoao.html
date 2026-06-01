@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico Operacional · Miray</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Saira:wght@500;700;800&display=swap" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+/* ─────────────────────────────────────────────
+   CONFIG
+───────────────────────────────────────────── */
+:root {
+  --bg:        #1c1c1c;
+  --bg-2:      #1c1c1c;
+  --card:      #242424;
+  --card-2:    #2b2b2b;
+  --card-3:    #333333;
+  --border:    rgba(255,255,255,.08);
+  --border-2:  rgba(16,185,129,.24);
+
+  --text:      #F1F5F9;
+  --text-2:    #FFFFFF;
+  --text-3:    #4B5A72;
+
+  --gray-15: #d9d9d9;
+  --gray-15: color-mix(in srgb, #ffffff 85%, #000000 15%);
+
+  --green:     #10B981;
+  --green-dim: rgba(16,185,129,.12);
+  --blue:      #3B82F6;
+  --blue-dim:  rgba(59,130,246,.12);
+  --purple:    #8B5CF6;
+  --purple-dim:rgba(139,92,246,.12);
+  --amber:     #F59E0B;
+  --amber-dim: rgba(245,158,11,.12);
+
+  --font-display: 'Saira', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-highlight: 'Inter', sans-serif;
+
+  --radius:    12px;
+  --radius-sm: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: auto; }
+
+/* Sem animações / transições (relatório + PDF) */
+*, *::before, *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 400;
+  overflow-x: hidden;
+}
+
+/* ─────────────────────────────────────────────
+   NOISE TEXTURE OVERLAY
+───────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+}
+
+/* ─────────────────────────────────────────────
+   LAYOUT
+───────────────────────────────────────────── */
+.wrap { position: relative; z-index: 1; max-width: 100%; margin: 0 auto; padding: 0; }
+
+section {
+  width: 210mm;
+  max-width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  margin: 0 auto 10mm;
+  padding: 18mm 12mm 24mm 12mm;
+  border: none;
+  box-sizing: border-box;
+  break-after: page;
+  page-break-after: always;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Pílula no rodapé de cada página interna */
+section::after {
+  content: "Diagnóstico Estratégico Operacional";
+  position: absolute;
+  left: 50%;
+  bottom: 12mm;
+  transform: translateX(-50%);
+  padding: 6px 14px 6px 32px;
+  border: 1px solid rgba(16, 185, 129, 0.34);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 16px 50%, var(--green) 0 3px, transparent 4px),
+    rgba(16, 185, 129, 0.08);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+section::before {
+  content: "";
+  position: absolute;
+  left: 12mm;
+  bottom: 11mm;
+  width: 72px;
+  height: 24px;
+  background: url("https://res.cloudinary.com/dblwlsuqv/image/upload/v1778604036/Name_Branco_befiwz.svg") center / contain no-repeat;
+  pointer-events: none;
+  z-index: 2;
+}
+
+section.hero::before,
+section.hero::after {
+  display: none;
+}
+
+.page-number {
+  position: absolute;
+  right: 12mm;
+  bottom: 13mm;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  line-height: 1;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   SECTION LABEL
+───────────────────────────────────────────── */
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 20px;
+}
+
+.section-label::before {
+  content: '';
+  display: block;
+  width: 18px;
+  height: 1px;
+  background: var(--green);
+}
+
+.section-headline {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.5vw, 42px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.section-sub {
+  font-size: 15px;
+  color: var(--text-2);
+  font-weight: 300;
+  max-width: 520px;
+  line-height: 1.7;
+}
+
+/* ─────────────────────────────────────────────
+   NAV
+───────────────────────────────────────────── */
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
+.hero {
+  min-height: 297mm;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-glow {
+  position: absolute;
+  top: -200px; left: 50%; transform: translateX(-50%);
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(16,185,129,.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 80%);
+  pointer-events: none;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 152mm);
+  padding-top: 24mm;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.report-logo {
+  position: absolute;
+  top: 24mm;
+  left: 18mm;
+  width: 132px;
+  height: auto;
+  object-fit: contain;
+  z-index: 3;
+}
+
+.hero-company {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.company-logo-wrap {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  background: var(--card-2);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+.company-logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+
+.company-logo-fallback {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--green);
+}
+
+.company-info h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+
+.company-info p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 8.8vw, 82px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -.04em;
+  color: var(--text);
+  margin-bottom: 28px;
+}
+
+.hero-title span {
+  background: linear-gradient(135deg, var(--green) 0%, #34D399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--gray-15);
+  max-width: 100%;
+  line-height: 1.75;
+  margin-bottom: 52px;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  max-width: 640px;
+}
+
+.summary-stats {
+  max-width: 100%;
+  margin-top: auto;
+  margin-bottom: 20mm;
+}
+
+.summary-section .summary-stats.hero-stats {
+  max-width: 100%;
+  width: 100%;
+  align-self: stretch;
+}
+
+.summary-section .hero-stat {
+  padding: 36px 44px;
+}
+
+.summary-section .hero-stat-num {
+  font-size: clamp(28px, 3.2vw, 34px);
+}
+
+.summary-section .hero-stat-label {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.hero-stat {
+  flex: 1;
+  padding: 22px 28px;
+  border-right: 1px solid var(--border);
+}
+
+.hero-stat:last-child { border-right: none; }
+
+.hero-stat-num {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  color: var(--text);
+}
+
+.hero-stat-num.orange { color: #E63946; }
+.hero-stat-num.white  { color: #FFFFFF; }
+.hero-stat-num.green  { color: var(--green); }
+.hero-stat-num.blue   { color: var(--blue); }
+.hero-stat-num.purple { color: var(--purple); }
+
+.hero-stat-label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+  letter-spacing: .02em;
+}
+
+/* ─────────────────────────────────────────────
+   DIVIDER
+───────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  max-width: 210mm;
+  margin: 0 auto;
+  display: none;
+}
+
+/* ─────────────────────────────────────────────
+   SUMMARY
+───────────────────────────────────────────── */
+.summary-section {
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-section > .wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(297mm - 48mm);
+}
+
+.summary-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+  gap: 32px 40px;
+  align-items: start;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.summary-sidebar {
+  position: static;
+}
+
+.summary-sidebar-tag {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 16px;
+}
+
+.summary-sidebar h3 {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 4.2vw, 40px);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.12;
+  color: var(--text);
+}
+
+.summary-sidebar-line {
+  width: 32px; height: 2px;
+  background: var(--green);
+  margin-top: 24px;
+  opacity: .4;
+}
+
+.summary-text {
+  font-size: 17px;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.8;
+}
+
+.summary-text p { margin-bottom: 20px; }
+.summary-text p:last-child { margin-bottom: 0; }
+.summary-text strong { color: var(--text); font-family: var(--font-highlight); font-weight: 700; }
+
+.summary-text .green-highlight {
+  display: block;
+  color: var(--green);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.summary-text,
+.bn-desc,
+.opp-desc,
+.opp-reasoning {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+}
+
+/* ─────────────────────────────────────────────
+   BOTTLENECKS
+───────────────────────────────────────────── */
+.bottleneck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 56px;
+}
+
+.bottleneck-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 210px;
+  padding: 28px;
+  position: relative;
+  overflow: visible;
+  cursor: default;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.bottleneck-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(16,185,129,.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.bottleneck-card:hover {
+  border-color: var(--border-2);
+}
+
+.bn-icon {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(16,185,129,.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.bn-icon::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.bn-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.01em;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.bn-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.65;
+  font-weight: 300;
+}
+
+.bn-number {
+  position: absolute;
+  top: 20px; right: 24px;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 800;
+  color: rgba(255,255,255,.03);
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+
+/* ─────────────────────────────────────────────
+   MATRIX
+───────────────────────────────────────────── */
+.matrix-section {
+  background: var(--bg);
+  padding: 16mm 10mm 17mm;
+}
+
+.matrix-wrap {
+  margin-top: 26px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.matrix-chart-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 10px 8px;
+  position: relative;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.matrix-chart-inner {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.chart-canvas-wrap {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  min-height: 540px;
+  height: 168mm;
+}
+
+/* axis labels — dentro do grid, sem posição negativa */
+.axis-label-y {
+  grid-column: 1;
+  grid-row: 1;
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 100%;
+  max-width: 40px;
+  margin: 0 auto;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-orientation: mixed;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.axis-label-x {
+  grid-column: 2;
+  grid-row: 2;
+  position: static;
+  transform: none;
+  left: auto;
+  bottom: auto;
+  text-align: center;
+  padding: 2px 4px 0;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* matrix legend — dentro do mesmo card */
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 18px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.2;
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   OPPORTUNITIES
+───────────────────────────────────────────── */
+.opportunities-section {
+  background: var(--bg-2);
+}
+
+.opportunities-section .section-sub {
+  color: var(--gray-15);
+}
+
+.opportunities-section .opp-desc {
+  color: var(--gray-15);
+}
+
+.opportunities-section .opp-reasoning {
+  color: var(--gray-15);
+}
+
+.opportunities-section .metric-badge-label {
+  color: var(--gray-15);
+}
+
+.opp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 56px;
+}
+
+.continuation-section .bottleneck-grid,
+.continuation-section .opp-grid {
+  margin-top: 0;
+}
+
+.opp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 330px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  cursor: default;
+  position: relative;
+  overflow: visible;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.opp-card:hover {
+  border-color: var(--border-2);
+}
+
+.opp-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opp-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opp-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.16);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.opp-cat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cat-win    { background: var(--green-dim);  color: var(--green); }
+.cat-moon   { background: var(--purple-dim); color: var(--purple); }
+.cat-struct { background: var(--blue-dim);   color: var(--blue); }
+.cat-low    { background: var(--amber-dim);  color: var(--amber); }
+
+.opp-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -.01em;
+  line-height: 1.3;
+}
+
+.opp-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.65;
+  font-weight: 300;
+}
+
+.opp-reasoning {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.6;
+  padding: 12px 16px;
+  background: var(--card-2);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--border-2);
+  font-style: italic;
+}
+
+.opp-metrics {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.metric-badge {
+  flex: 1;
+  background: var(--card-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.metric-badge-label {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.metric-badge-value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+.metric-badge-value.impact { color: var(--green); }
+.metric-badge-value.effort { color: #FF6A00; }
+
+/* glow line at top by category */
+.opp-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  opacity: 0;
+}
+
+.opp-card:hover::after { opacity: 1; }
+.opp-card[data-cat="win"]::after    { background: var(--green); }
+.opp-card[data-cat="moon"]::after   { background: var(--purple); }
+.opp-card[data-cat="struct"]::after { background: var(--blue); }
+.opp-card[data-cat="low"]::after    { background: var(--amber); }
+
+/* ─────────────────────────────────────────────
+   CTA
+───────────────────────────────────────────── */
+.cta-section {
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-glow {
+  position: absolute;
+  bottom: -200px; left: 50%; transform: translateX(-50%);
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(16,185,129,.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.cta-inner {
+  position: relative; z-index: 2;
+  min-height: calc(297mm - 48mm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 48px;
+}
+
+.cta-left .eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cta-left h2 {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.04em;
+  color: var(--text);
+  margin-bottom: 24px;
+  max-width: 470px;
+}
+
+.cta-left h2 em {
+  font-family: var(--font-display);
+  font-style: normal;
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.cta-left p {
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.75;
+  max-width: 390px;
+}
+
+.cta-right {
+  background: var(--card);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  width: 100%;
+  min-height: 108mm;
+  padding: 30px 34px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 26px;
+  align-items: stretch;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.cta-right-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.cta-right-sub {
+  font-size: 14px;
+  color: var(--text-2);
+  font-weight: 300;
+  line-height: 1.7;
+  margin-top: 8px;
+  max-width: 360px;
+}
+
+.cta-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.cta-feature {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.55;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,.025);
+}
+
+.cta-feature span {
+  display: block;
+  max-width: none;
+}
+
+.cta-feature-icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: var(--green-dim);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.cta-feature-icon svg { width: 15px; height: 15px; color: var(--green); }
+
+.cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  min-width: 260px;
+  padding: 16px 28px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.cta-btn:hover {
+  box-shadow: 0 12px 40px rgba(16,185,129,.35);
+}
+
+.cta-note {
+  display: none;
+}
+
+.cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding-top: 6px;
+}
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE (somente tela — evita que impressão/PDF herdem layout “mobile”)
+───────────────────────────────────────────── */
+@media screen and (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    background: var(--bg);
+  }
+
+  body {
+    --mobile-page-scale: 1;
+    --mobile-page-flow-offset: 0px;
+    --mobile-page-gap: 14px;
+    padding: 8px 0;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  section {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    margin: 0 8px calc(var(--mobile-page-flow-offset) + var(--mobile-page-gap)) !important;
+    padding: 18mm 12mm 24mm 12mm !important;
+    overflow: hidden !important;
+    transform: scale(var(--mobile-page-scale));
+    transform-origin: top left;
+    background: var(--bg);
+  }
+
+  section:last-of-type {
+    margin-bottom: var(--mobile-page-flow-offset) !important;
+  }
+
+  .hero-glow,
+  .hero-grid,
+  .cta-glow,
+  .bottleneck-card::before,
+  .cta-btn::before {
+    display: none !important;
+  }
+
+  .summary-section > .wrap {
+    min-height: calc(297mm - 18mm - 24mm);
+  }
+
+  .summary-inner {
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+    gap: 6mm 8mm;
+  }
+
+  .cta-inner { min-height: calc(297mm - 18mm - 24mm); gap: 28px; }
+  .cta-right { grid-template-columns: 1fr; min-height: 108mm; }
+  .cta-features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hero-stats { flex-direction: row; flex-wrap: nowrap; }
+  .hero-stat {
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+  }
+  .hero-stat:last-child {
+    border-right: none;
+    border-bottom: none;
+  }
+  .axis-label-y, .axis-label-x { display: flex; }
+  .matrix-chart-inner {
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 4px 10px;
+  }
+  .chart-canvas-wrap {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 540px;
+    height: 168mm;
+  }
+  .matrix-legend {
+    padding: 12px 16px;
+  }
+
+  .bottleneck-grid,
+  .opp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   CUSTOM SCROLLBAR
+───────────────────────────────────────────── */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html {
+    background: var(--bg) !important;
+  }
+
+  html,
+  body {
+    width: 100%;
+    max-width: none;
+    margin: 0 auto;
+    padding: 0;
+    background: var(--bg) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  body::before {
+    display: none !important;
+  }
+
+  .hero-glow,
+  .hero-grid,
+  .cta-glow {
+    display: none !important;
+  }
+
+  .bottleneck-card::before,
+  .cta-btn::before {
+    display: none !important;
+  }
+
+  section::before {
+    display: block !important;
+  }
+
+  section.hero::before,
+  section.hero::after {
+    display: none !important;
+  }
+
+  section::after {
+    display: block !important;
+  }
+
+  .divider {
+    display: none !important;
+  }
+
+  /* Espaçamento “invisível”: padding no conteúdo (mesmo fundo #1c1c1c), sem margem @page branca */
+  section {
+    box-sizing: border-box;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    margin: 0 auto !important;
+    padding: 18mm 12mm 24mm 12mm !important;
+    border: none;
+    box-shadow: none;
+    break-after: page;
+    page-break-after: always;
+    overflow: hidden !important;
+    background: var(--bg) !important;
+  }
+
+  .summary-section {
+    background: var(--bg-2) !important;
+  }
+
+  /* Capa: uma folha A4 com área útil já descontando o padding da section */
+  section.hero {
+    min-height: 297mm !important;
+  }
+
+  section:last-of-type {
+    break-after: auto;
+    page-break-after: auto;
+    padding-bottom: 24mm !important;
+  }
+
+  .hero {
+    min-height: calc(297mm - 18mm - 24mm) !important;
+    overflow: visible !important;
+  }
+
+  /* Resumo: metade esquerda (título) | metade direita (texto); stats no fim da página */
+  .summary-section > .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: calc(297mm - 18mm - 24mm) !important;
+  }
+
+  .summary-inner {
+    display: grid !important;
+    grid-template-columns: minmax(0, 40%) minmax(0, 60%) !important;
+    gap: 6mm 8mm !important;
+    align-items: start !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
+  .summary-sidebar {
+    float: none !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    position: static !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .summary-text {
+    display: block !important;
+    overflow: visible !important;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .summary-stats {
+    clear: none !important;
+    margin-top: auto !important;
+    margin-bottom: 18mm !important;
+  }
+  .hero-stats,
+  .summary-stats.hero-stats {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .hero-stat {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    border-right: 1px solid var(--border) !important;
+    border-bottom: none !important;
+  }
+
+  .summary-section .hero-stat {
+    padding: 34px 32px !important;
+  }
+
+  .hero-stat:last-child {
+    border-right: none !important;
+  }
+
+  .bottleneck-grid,
+  .opp-grid {
+    break-inside: auto;
+    page-break-inside: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  /* Gargalos: quebra entre cards, não no meio do card */
+  .bottleneck-card {
+    min-height: 210px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* Oportunidades: mantém cada card inteiro para preservar leitura visual */
+  .opp-card {
+    min-height: 330px !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .metric-badge {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .matrix-wrap {
+    gap: 14px !important;
+  }
+
+  .matrix-chart-container {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .matrix-chart-inner {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .chart-canvas-wrap {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    height: 168mm !important;
+    min-height: 540px !important;
+    max-height: none;
+  }
+
+  .matrix-legend {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cta-inner {
+    min-height: auto !important;
+    gap: 28px !important;
+  }
+
+  .cta-right {
+    min-height: auto !important;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .cta-feature {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .section-label,
+  .section-headline,
+  .summary-sidebar h3,
+  .hero-title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  p,
+  .summary-text p,
+  .section-sub,
+  .hero-sub,
+  .bn-desc,
+  .opp-desc,
+  .opp-reasoning {
+    orphans: 4;
+    widows: 4;
+  }
+
+  /* Respiro extra em blocos longos (quebra entre páginas) */
+  .summary-text p + p {
+    margin-top: 0.35em;
+  }
+
+  .opp-card,
+  .bottleneck-card {
+    margin-bottom: 3mm;
+  }
+
+  .opp-card:last-child,
+  .bottleneck-card:last-child {
+    margin-bottom: 0;
+  }
+
+  a[href] {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--card-3); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<script>
+/* ═══════════════════════════════════════════
+   ▶  EDITE AQUI — DADOS DA EMPRESA
+═══════════════════════════════════════════ */
+
+const REPORT_DATA = [
+  {
+    "cover": {
+      "clientLogoUrl": "data:image/jpeg;base64,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",
+      "companyName": "João Paulo Rocha/Estrategista da Produtividade Rural",
+      "reportDate": "Junho, 2026"
+    },
+    "summary": {
+      "text": "João Paulo Rocha, Estrategista da Produtividade Rural e Consultor em Vitivinicultura, é um especialista técnico focado em otimizar margens de lucro e compliance para fazendas. Sua expertise, especialmente no nicho de vitivinicultura, é um diferencial competitivo. No entanto, mapeamos que a dependência de indicações, a dificuldade de escalar sem aumentar a equipe e a falta de padronização são desafios centrais. Estes levam a gargalos como a prospecção de clientes e a construção de autoridade, consumindo energia vital. Identificamos diversas oportunidades para a Miray atuar, focando em estruturar processos, automatizar fluxos e alavancar dados para transformar estas dores em crescimento previsível e eficiente."
+    },
+    "operationalSignals": [
+      {
+        "number": 1,
+        "signals_title": "Dependência Passiva de Aquisição de Clientes",
+        "signals_description": "A forte dependência de indicações sugere a ausência de canais de marketing e vendas proativos e estruturados, limitando a previsibilidade e o volume de novas oportunidades."
+      },
+      {
+        "number": 2,
+        "signals_title": "Carga Operacional Centralizada na Liderança",
+        "signals_description": "A dificuldade de escalar sem contratar indica que grande parte da execução ou do conhecimento crítico reside em João Paulo, resultando em sobrecarga e um teto para o crescimento da operação."
+      },
+      {
+        "number": 3,
+        "signals_title": "Inconsistência na Entrega de Valor e Conhecimento",
+        "signals_description": "A falta de padronização pode levar a variações na qualidade do serviço, dificuldades na replicação de metodologias e maior esforço para treinar e integrar novos colaboradores ou parceiros."
+      },
+      {
+        "number": 4,
+        "signals_title": "Desgaste Energético na Construção de Autoridade e Prospecção",
+        "signals_description": "A alta energia dedicada à prospecção e construção de autoridade sem processos otimizados sugere ineficiência na gestão de conteúdo, SEO, e nutrição de leads, prejudicando o foco no core business."
+      },
+      {
+        "number": 5,
+        "signals_title": "Ausência de Roteiros e Playbooks Operacionais",
+        "signals_description": "A falta de padronização se manifesta na ausência de documentação clara para processos de consultoria, onboarding de clientes e gestão de projetos, dificultando a delegação e o crescimento."
+      },
+      {
+        "number": 6,
+        "signals_title": "Dados de Desempenho Desconectados ou Inexistentes",
+        "signals_description": "Sem padronização, é provável que a coleta e análise de dados sobre a performance das consultorias, o ciclo de vendas e a eficácia das estratégias de marketing sejam inconsistentes, impactando a tomada de decisão."
+      }
+    ],
+    "strategicOpportunities": [
+      {
+        "title": "Funil de Conteúdo Especializado para Vitivinicultura",
+        "description": "Desenvolver e implementar um funil de marketing de conteúdo focado no nicho de vitivinicultura, desde a atração (blog, SEO, redes sociais) até a conversão, utilizando a expertise de João Paulo para gerar autoridade e leads qualificados.",
+        "impact_score": 9,
+        "implementation_difficulty": 7,
+        "reasoning": "Aborda diretamente a dor da prospecção e construção de autoridade, transformando a energia gasta em um ativo escalável.",
+        "classification": "moon"
+      },
+      {
+        "title": "Playbook de Consultoria Rural e Vitivinícola",
+        "description": "Criar um \"playbook\" detalhado com os processos-chave da consultoria, desde a abordagem inicial, diagnóstico, entrega de relatórios, follow-up e gestão de projetos, garantindo consistência e qualidade.",
+        "impact_score": 8,
+        "implementation_difficulty": 5,
+        "reasoning": "Soluciona a \"falta de padronização\", permitindo escalar sem comprometer a qualidade e sem a necessidade imediata de novas contratações intensivas.",
+        "classification": "win"
+      },
+      {
+        "title": "CRM Essencial para Gestão de Relacionamentos",
+        "description": "Adotar e configurar um sistema CRM para centralizar leads, clientes, histórico de interações, propostas e follow-ups, proporcionando visibilidade e organização ao funil comercial.",
+        "impact_score": 7,
+        "implementation_difficulty": 3,
+        "reasoning": "Oferece uma base para gerenciar as indicações e novos leads de forma mais eficaz, apoiando a prospecção e reduzindo a dependência da memória individual.",
+        "classification": "win"
+      },
+      {
+        "title": "Automação da Pré-Qualificação de Leads",
+        "description": "Desenvolver um fluxo automatizado (e.g., formulário inteligente, chatbot simples) para coletar informações básicas de novos leads e qualificá-los antes do primeiro contato humano, filtrando o interesse e o perfil.",
+        "impact_score": 6,
+        "implementation_difficulty": 4,
+        "reasoning": "Reduz o \"consumo de energia\" na prospecção ao garantir que o tempo seja dedicado a oportunidades mais alinhadas.",
+        "classification": "win"
+      },
+      {
+        "title": "Modelos Padronizados de Propostas e Contratos",
+        "description": "Elaborar templates dinâmicos e padronizados para propostas comerciais e contratos de serviço, agilizando o fechamento de negócios e garantindo a consistência jurídica e de valores.",
+        "impact_score": 5,
+        "implementation_difficulty": 2,
+        "reasoning": "Contribui para a \"falta de padronização\" no processo comercial, facilitando o crescimento e a replicação.",
+        "classification": "win"
+      },
+      {
+        "title": "Programa de Indicação Otimizado",
+        "description": "Criar um programa formal de indicações que incentive clientes satisfeitos a referenciar novos negócios, oferecendo benefícios claros e um processo de acompanhamento para as indicações.",
+        "impact_score": 7,
+        "implementation_difficulty": 4,
+        "reasoning": "Transforma a \"dependência de indicação\" de passiva para um motor de crescimento ativo e gerenciável.",
+        "classification": "win"
+      },
+      {
+        "title": "Base de Dados de Projetos e Resultados",
+        "description": "Organizar e padronizar a coleta de dados de cada projeto (fazenda, cultura, problema inicial, soluções implementadas, resultados atingidos) para criar um repositório de cases de sucesso e métricas de impacto.",
+        "impact_score": 8,
+        "implementation_difficulty": 6,
+        "reasoning": "Transforma a expertise de João Paulo em dados tangíveis, fundamental para a construção de autoridade e a escalabilidade da proposta de valor.",
+        "classification": "moon"
+      },
+      {
+        "title": "Onboarding de Clientes Automatizado e Padronizado",
+        "description": "Criar um fluxo de onboarding automatizado para novos clientes, incluindo o envio de materiais iniciais, agendamento de reuniões, coleta de informações via formulários e apresentação dos próximos passos.",
+        "impact_score": 7,
+        "implementation_difficulty": 5,
+        "reasoning": "Aborda a \"falta de padronização\" e a dificuldade de escalar sem contratar, tornando a entrada de novos clientes mais eficiente e consistente.",
+        "classification": "win"
+      },
+      {
+        "title": "Mapeamento da Jornada do Cliente",
+        "description": "Mapear toda a jornada do cliente, desde o primeiro contato até o pós-consultoria, identificando todos os pontos de contato e oportunidades de melhoria ou automação para otimizar a experiência e a eficiência.",
+        "impact_score": 6,
+        "implementation_difficulty": 4,
+        "reasoning": "Fundamental para entender \"onde processos quebram conforme a empresa cresce\" e para aprimorar a \"previsibilidade\".",
+        "classification": "win"
+      },
+      {
+        "title": "Estratégia de SEO Focada em Vitivinicultura",
+        "description": "Desenvolver uma estratégia de SEO para otimizar o conteúdo existente e futuro, focando em palavras-chave específicas do setor de vitivinicultura e produtividade rural, para aumentar a visibilidade orgânica.",
+        "impact_score": 8,
+        "implementation_difficulty": 6,
+        "reasoning": "Ataca a \"energia consumida na prospecção e construção de autoridade\" ao criar um motor de aquisição de leads passivo e de longo prazo.",
+        "classification": "moon"
+      },
+      {
+        "title": "Painel de KPIs Operacionais e Comerciais",
+        "description": "Desenvolver um painel simples com os principais indicadores de performance (leads gerados, taxa de conversão, tempo de projeto, satisfação do cliente, etc.) para monitorar o desempenho da operação.",
+        "impact_score": 7,
+        "implementation_difficulty": 5,
+        "reasoning": "Aumenta a previsibilidade, permite identificar rapidamente problemas e tomar decisões baseadas em dados.",
+        "classification": "win"
+      },
+      {
+        "title": "Ferramentas Interativas de Valor",
+        "description": "Criar ferramentas online simples (ex: calculadora de potencial de lucro, checklist de compliance, simulador de poda) que gerem valor imediato para o visitante do site, capturando leads e demonstrando expertise.",
+        "impact_score": 7,
+        "implementation_difficulty": 6,
+        "reasoning": "Contribui para a construção de autoridade e a prospecção de novos clientes de forma inovadora e escalável.",
+        "classification": "moon"
+      },
+      {
+        "title": "Integração de Ferramentas de Vendas e Marketing",
+        "description": "Conectar o CRM (oportunidade 3) com as ferramentas de marketing (e.g., formulários do site, email marketing) para um fluxo contínuo de dados, garantindo que nenhum lead se perca e que as interações sejam centralizadas.",
+        "impact_score": 6,
+        "implementation_difficulty": 5,
+        "reasoning": "Melhora a eficiência e a previsibilidade ao garantir que as informações de prospecção e relacionamento sejam bem gerenciadas e acessíveis.",
+        "classification": "win"
+      },
+      {
+        "title": "Banco de Perguntas Frequentes e Respostas Padrão",
+        "description": "Compilar as perguntas mais comuns de clientes e prospects e desenvolver respostas padronizadas para cada uma, otimizando o atendimento e liberando tempo para questões mais complexas.",
+        "impact_score": 5,
+        "implementation_difficulty": 2,
+        "reasoning": "Aborda a \"falta de padronização\" e a dificuldade de escalar o atendimento sem aumentar a equipe.",
+        "classification": "win"
+      },
+      {
+        "title": "Programa de Capacitação para Expansão",
+        "description": "Com base no playbook de consultoria (oportunidade 2), criar um programa de treinamento e capacitação para potenciais novos consultores ou parceiros, visando a escalabilidade da equipe no futuro.",
+        "impact_score": 9,
+        "implementation_difficulty": 8,
+        "reasoning": "É uma solução de longo prazo para \"é difícil escalar sem contratar\", transformando o conhecimento de João Paulo em um ativo replicável.",
+        "classification": "moon"
+      }
+    ]
+  }
+];
+
+const REPORT = REPORT_DATA[0].report || REPORT_DATA[0];
+const COMPANY_LOGO = REPORT.cover.clientLogoUrl;
+const COMPANY_NAME = REPORT.cover.companyName;
+const COMPANY_DATE = REPORT.cover.reportDate;
+const summary = REPORT.summary.text;
+const possible_bottlenecks = REPORT.operationalSignals.map(item => ({
+  number: item.number,
+  title: item.signals_title,
+  description: item.signals_description
+}));
+const opportunities = REPORT.strategicOpportunities.map(item => ({
+  impact: item.impact_score,
+  effort: item.implementation_difficulty,
+  classification: item.classification,
+  title: item.title,
+  description: item.description,
+  reasoning: item.reasoning
+}));
+
+function calculateBigNumbers() {
+  return {
+    bottlenecks: possible_bottlenecks.length,
+    opportunities: opportunities.length,
+    quickWins: opportunities.filter(opp => getOpportunityCategory(opp) === 'win').length,
+    moonshots: opportunities.filter(opp => getOpportunityCategory(opp) === 'moon').length
+  };
+}
+/* ═══════════════════════════════════════════
+   FIM DOS DADOS
+═══════════════════════════════════════════ */
+</script>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-grid"></div>
+  <img
+    class="report-logo"
+    src="https://res.cloudinary.com/dblwlsuqv/image/upload/v1778604036/Name_Branco_befiwz.svg"
+    alt="Miray"
+  >
+  <div class="wrap hero-inner">
+    <div class="hero-company">
+      <div class="company-logo-wrap">
+        <img id="heroLogoImg" src="" alt="" style="display:none;">
+        <span class="company-logo-fallback" id="heroLogoFallback">?</span>
+      </div>
+      <div class="company-info">
+        <h2 id="heroCompanyName">—</h2>
+        <p id="heroCompanyMeta">—</p>
+      </div>
+    </div>
+
+    <h1 class="hero-title">
+      Diagnóstico<br>
+      <span>Estratégico</span><br>
+      Operacional
+    </h1>
+
+    <p class="hero-sub">Identificando os espaços onde dados e inteligência<br>podem ampliar o potencial da sua empresa.</p>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── ABOUT MIRAY ── -->
+<section class="summary-section">
+  <div class="wrap summary-page">
+    <div class="summary-inner">
+      <div class="summary-sidebar">
+        <div class="summary-sidebar-tag">Quem somos</div>
+        <h3>Ajudamos empresas em crescimento</h3>
+        <div class="summary-sidebar-line"></div>
+      </div>
+      <div class="summary-text">
+        <p>Empresas em crescimento começam a enfrentar um problema silencioso.</p>
+        <p><span class="green-highlight">A operação deixa de acompanhar a velocidade do negócio.</span></p>
+        <p>Processos se acumulam.<br>Decisões ficam mais lentas.<br>A equipe passa mais tempo sustentando a operação do que evoluindo ela.</p>
+        <p>A Miray existe para organizar esse crescimento.</p>
+        <p>Ajudamos empresas a recuperar tempo reduzindo processos repetitivos, ganhar espaço construindo novas oportunidades e entregar conhecimento através de dados estruturados e inteligência de mercado.</p>
+        <p>Nosso foco não é adicionar mais complexidade.<br>É construir operações mais leves, conscientes e preparadas para crescer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── SUMMARY ── -->
+<section class="summary-section">
+  <div class="wrap summary-page">
+    <div class="summary-inner">
+      <div class="summary-sidebar">
+        <div class="summary-sidebar-tag">Resumo executivo</div>
+        <h3>O que encontramos na análise</h3>
+        <div class="summary-sidebar-line"></div>
+      </div>
+      <div class="summary-text" id="summaryText">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+    <div class="hero-stats summary-stats" id="heroStats">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── BOTTLENECKS ── -->
+<section>
+  <div class="wrap">
+    <div class="section-label">Sinais operacionais</div>
+    <h2 class="section-headline">Possíveis espaços de<br>evolução na operação</h2>
+    <p class="section-sub">Gargalos operacionais percebidos a partir do contexto, estrutura e momento da empresa.</p>
+    <div class="bottleneck-grid" id="bottleneckGrid">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── MATRIX ── -->
+<section class="matrix-section">
+  <div class="wrap">
+    <div class="section-label">Oportunidades Identificadas</div>
+    <h2 class="section-headline">Mapa de<br>Oportunidades Estratégicas</h2>
+    <p class="section-sub">Uma leitura visual das oportunidades com maior potencial de impacto e viabilidade operacional.</p>
+
+    <div class="matrix-wrap">
+      <div class="matrix-chart-container">
+        <div class="matrix-chart-inner">
+          <div class="axis-label-y">Impacto</div>
+          <div class="chart-canvas-wrap">
+            <canvas id="matrixChart"></canvas>
+          </div>
+          <div class="axis-label-x">Esforço</div>
+        </div>
+      </div>
+      <div class="matrix-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Quick Win</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Moonshot</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Melhoria Estrutural</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Baixa Prioridade</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── OPPORTUNITIES ── -->
+<section class="opportunities-section">
+  <div class="wrap">
+    <div class="section-label">Oportunidades identificadas</div>
+    <h2 class="section-headline">Definição das<br>Oportunidades Estratégicas</h2>
+    <p class="section-sub">Cada iniciativa abaixo representa uma oportunidade identificada a partir dos sinais operacionais analisados no diagnóstico.</p>
+
+    <div class="opp-grid" id="oppGrid">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── CTA ── -->
+<section class="cta-section" id="cta">
+  <div class="cta-glow"></div>
+  <div class="wrap">
+    <div class="cta-inner">
+      <div class="cta-left">
+        <div class="eyebrow">
+          <span style="width:16px;height:1px;background:var(--green);display:inline-block;"></span>
+          Como a Miray atua
+        </div>
+        <h2>Transformando os<br><em>Sinais em Realidade</em></h2>
+        <p>A Miray ajuda empresas em crescimento a organizar operações, conectar informações e transformar dados em conhecimento de negócio.</p>
+      </div>
+      <div class="cta-right">
+        <div>
+          <div class="cta-right-title">Como essas oportunidades podem sair do papel</div>
+          <div class="cta-right-sub">Uma conversa para aprofundar as oportunidades identificadas no diagnóstico.</div>
+        </div>
+        <div class="cta-features">
+          <div class="cta-feature">
+            <div class="cta-feature-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M8 2L10 6L14 6.5L11 9.5L11.5 14L8 12L4.5 14L5 9.5L2 6.5L6 6L8 2Z"/>
+              </svg>
+            </div>
+            <span>Diagnóstico aprofundado das prioridades identificadas</span>
+          </div>
+          <div class="cta-feature">
+            <div class="cta-feature-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="3" width="12" height="10" rx="1.5"/>
+                <path d="M5 7h6M5 9.5h4"/>
+              </svg>
+            </div>
+            <span>Plano inicial de implementação das iniciativas de maior impacto</span>
+          </div>
+          <div class="cta-feature">
+            <div class="cta-feature-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 12L6 8L9 10L13 5"/>
+                <circle cx="13" cy="5" r="1"/>
+              </svg>
+            </div>
+            <span>Organização das prioridades para os próximos ciclos de crescimento</span>
+          </div>
+        </div>
+        <div class="cta-actions">
+          <a href="https://calendar.notion.so/meet/miraylab/consultoria" class="cta-btn" target="_blank">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="2" y="3" width="12" height="11" rx="1.5"/>
+              <path d="M5 2v2M11 2v2M2 7h12"/>
+            </svg>
+            Conversar com a Miray
+          </a>
+      </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+/* ── helpers ── */
+function getCategory(impact, effort) {
+  if (impact >= 7 && effort <= 4) return 'win';
+  if (impact >= 7 && effort > 4)  return 'moon';
+  if (impact < 7  && effort <= 5) return 'low';
+  return 'struct';
+}
+
+function getMatrixCategory(impact, effort) {
+  const x = Number(effort);
+  const y = Number(impact);
+  if (x <= 5 && y >= 5) return 'win';
+  if (x > 5 && y >= 5) return 'moon';
+  if (x <= 5 && y < 5) return 'struct';
+  return 'low';
+}
+
+function normalizeClassification(value) {
+  const key = String(value || '').trim().toLowerCase();
+  const map = {
+    'quick-win': 'win',
+    'quick win': 'win',
+    'quickwin': 'win',
+    'win': 'win',
+    'moonshot': 'moon',
+    'moonshots': 'moon',
+    'moon': 'moon',
+    'melhoria-estrutural': 'struct',
+    'melhoria estrutural': 'struct',
+    'estrutural': 'struct',
+    'struct': 'struct',
+    'baixa-prioridade': 'low',
+    'baixa prioridade': 'low',
+    'low': 'low'
+  };
+  return map[key] || '';
+}
+
+function getOpportunityCategory(opp) {
+  return normalizeClassification(opp.classification) || getMatrixCategory(opp.impact, opp.effort);
+}
+
+const CAT_META = {
+  win:    { label: 'Quick Win',    color: '#10B981', badgeClass: 'cat-win' },
+  moon:   { label: 'Moonshot',     color: '#8B5CF6', badgeClass: 'cat-moon' },
+  struct: { label: 'Estrutural',   color: '#3B82F6', badgeClass: 'cat-struct' },
+  low:    { label: 'Baixa Prior.', color: '#F59E0B', badgeClass: 'cat-low' }
+};
+
+function getOpportunityPriority(opp) {
+  return Number(opp.impact) * (10 - Number(opp.effort));
+}
+
+function getRankedOpportunities() {
+  return [...opportunities]
+    .map((opp, index) => ({
+      ...opp,
+      priorityScore: getOpportunityPriority(opp),
+      originalIndex: index
+    }))
+    .sort((a, b) =>
+      b.priorityScore - a.priorityScore ||
+      b.impact - a.impact ||
+      a.effort - b.effort ||
+      a.originalIndex - b.originalIndex
+    )
+    .map((opp, index) => ({ ...opp, rank: index + 1 }));
+}
+
+
+/* ── DOM ── */
+function init() {
+  // hero
+  document.getElementById('heroCompanyName').textContent = COMPANY_NAME;
+  document.getElementById('heroCompanyMeta').textContent = COMPANY_DATE;
+  // logo
+  if (COMPANY_LOGO) {
+    document.getElementById('heroLogoImg').src = COMPANY_LOGO;
+    document.getElementById('heroLogoImg').style.display = 'block';
+    document.getElementById('heroLogoFallback').style.display = 'none';
+  } else {
+    document.getElementById('heroLogoFallback').textContent = COMPANY_NAME.charAt(0).toUpperCase();
+  }
+
+  // hero stats
+  const bigNumbers = calculateBigNumbers();
+  document.getElementById('heroStats').innerHTML = `
+    <div class="hero-stat">
+      <div class="hero-stat-num orange">${bigNumbers.bottlenecks}</div>
+      <div class="hero-stat-label">Gargalos mapeados</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num white">${bigNumbers.opportunities}</div>
+      <div class="hero-stat-label">Oportunidades</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num green">${bigNumbers.quickWins}</div>
+      <div class="hero-stat-label">Quick wins</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num purple">${bigNumbers.moonshots}</div>
+      <div class="hero-stat-label">Moonshots</div>
+    </div>
+  `;
+
+  // summary
+  const summaryEl = document.getElementById('summaryText');
+  summary.split('\n\n').filter(Boolean).forEach(p => {
+    const el = document.createElement('p');
+    el.innerHTML = p.replace(/\b(crítico|principal|represada|60.90 dias|exatamente)\b/gi, '<strong>$1</strong>');
+    summaryEl.appendChild(el);
+  });
+
+  // bottlenecks
+  const grid = document.getElementById('bottleneckGrid');
+  possible_bottlenecks.forEach((bn, i) => {
+    grid.innerHTML += `
+      <div class="bottleneck-card">
+        <div class="bn-number">${String(bn.number || i + 1).padStart(2, '0')}</div>
+        <div class="bn-icon"></div>
+        <div class="bn-title">${bn.title}</div>
+        <div class="bn-desc">${bn.description}</div>
+      </div>
+    `;
+  });
+
+  // opportunities
+  renderOppCards();
+
+  // chart
+  if (typeof Chart !== 'undefined') {
+    initChart();
+  }
+
+  // paginacao A4 para conteudos longos
+  paginateGridSection('#bottleneckGrid', '.bottleneck-card');
+  paginateGridSection('#oppGrid', '.opp-card');
+  renderPageNumbers();
+  syncMobilePageScale();
+}
+
+function paginateGridSection(gridSelector, itemSelector) {
+  const firstGrid = document.querySelector(gridSelector);
+  if (!firstGrid) return;
+
+  let section = firstGrid.closest('section');
+  let grid = firstGrid;
+  let guard = 0;
+
+  while (section && section.scrollHeight > section.clientHeight + 2 && grid.children.length > 1 && guard < 40) {
+    guard++;
+
+    const nextSection = createContinuationSection(section, grid);
+    const nextGrid = nextSection.querySelector('[data-continuation-grid]');
+    section.after(nextSection);
+
+    while (section.scrollHeight > section.clientHeight + 2 && grid.children.length > 1) {
+      nextGrid.prepend(grid.lastElementChild);
+    }
+
+    section = nextSection;
+    grid = nextGrid;
+  }
+}
+
+function createContinuationSection(sourceSection, sourceGrid) {
+  const section = document.createElement('section');
+  section.className = `${sourceSection.className} continuation-section`.trim();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'wrap';
+
+  const grid = document.createElement('div');
+  grid.className = sourceGrid.className;
+  grid.dataset.continuationGrid = 'true';
+
+  wrap.appendChild(grid);
+  section.appendChild(wrap);
+  return section;
+}
+
+function renderPageNumbers() {
+  document.querySelectorAll('.page-number').forEach(el => el.remove());
+  const pages = [...document.querySelectorAll('section')];
+  const total = pages.length;
+  pages.forEach((page, index) => {
+    if (page.classList.contains('hero')) return;
+    const marker = document.createElement('div');
+    marker.className = 'page-number';
+    marker.textContent = `${String(index + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+    page.appendChild(marker);
+  });
+}
+
+function syncMobilePageScale() {
+  const firstPage = document.querySelector('section');
+  if (!firstPage) return;
+
+  const root = document.body || document.documentElement;
+  if (!window.matchMedia('(max-width: 768px)').matches) {
+    root.style.removeProperty('--mobile-page-scale');
+    root.style.removeProperty('--mobile-page-flow-offset');
+    return;
+  }
+
+  const availableWidth = Math.max(320, window.innerWidth - 16);
+  const pageWidth = firstPage.offsetWidth;
+  const pageHeight = firstPage.offsetHeight;
+  const scale = Math.min(1, availableWidth / pageWidth);
+  const flowOffset = (pageHeight * scale) - pageHeight;
+
+  root.style.setProperty('--mobile-page-scale', scale.toFixed(4));
+  root.style.setProperty('--mobile-page-flow-offset', `${flowOffset.toFixed(2)}px`);
+
+  if (window.__matrixChart && typeof window.__matrixChart.resize === 'function') {
+    window.__matrixChart.resize();
+  }
+}
+
+window.addEventListener('resize', syncMobilePageScale);
+window.addEventListener('orientationchange', syncMobilePageScale);
+
+function renderOppCards() {
+  const grid = document.getElementById('oppGrid');
+  grid.innerHTML = '';
+  const sorted = getRankedOpportunities();
+  sorted.forEach((opp) => {
+    const cat = getOpportunityCategory(opp);
+    const meta = CAT_META[cat];
+    grid.innerHTML += `
+      <div class="opp-card" data-cat="${cat}">
+        <div class="opp-card-meta">
+          <span class="opp-rank-pill">#${opp.rank}</span>
+          <span class="opp-cat-badge ${meta.badgeClass}">${meta.label}</span>
+        </div>
+        <div class="opp-card-top">
+          <div class="opp-title">${opp.title}</div>
+        </div>
+        <div class="opp-desc">${opp.description}</div>
+        <div class="opp-reasoning">${opp.reasoning}</div>
+        <div class="opp-metrics">
+          <div class="metric-badge">
+            <div class="metric-badge-label">Impacto</div>
+            <div class="metric-badge-value impact">${opp.impact}<span style="font-size:12px;color:var(--gray-15);font-family:var(--font-body);font-weight:300;">/10</span></div>
+          </div>
+          <div class="metric-badge">
+            <div class="metric-badge-label">Esforço</div>
+            <div class="metric-badge-value effort">${opp.effort}<span style="font-size:12px;color:var(--gray-15);font-family:var(--font-body);font-weight:300;">/10</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+}
+
+function initChart() {
+  const datasets = { win: [], moon: [], struct: [], low: [] };
+  const rankedOpportunities = getRankedOpportunities();
+  const rankByOpportunity = new Map(
+    rankedOpportunities.map((opp) => [opp.originalIndex, opp.rank])
+  );
+
+  opportunities.forEach((opp, index) => {
+    const point = {
+      x: opp.effort,
+      y: opp.impact,
+      label: opp.title,
+      priorityScore: getOpportunityPriority(opp),
+      rank: rankByOpportunity.get(index),
+      r: 13
+    };
+    const k = getOpportunityCategory(opp);
+    datasets[k].push(point);
+  });
+
+  const catConfig = [
+    { key: 'win',    label: '🚀 Quick Win',            color: '#10B981', bg: 'rgba(16,185,129,.22)' },
+    { key: 'moon',   label: '🎯 Moonshot',              color: '#8B5CF6', bg: 'rgba(139,92,246,.22)' },
+    { key: 'struct', label: '🧩 Melhoria Estrutural',   color: '#3B82F6', bg: 'rgba(59,130,246,.22)' },
+    { key: 'low',    label: '⚠️ Baixa Prioridade',      color: '#F59E0B', bg: 'rgba(245,158,11,.22)'  }
+  ];
+
+  const ctx = document.getElementById('matrixChart').getContext('2d');
+
+  function drawMatrixPill(ctx, text, ax, ay, anchor, fill, stroke, textColor) {
+    const padX = 10;
+    const radius = 10;
+    const h = 24;
+    ctx.font = "600 10px 'Inter', system-ui, sans-serif";
+    const w = Math.ceil(ctx.measureText(text).width) + padX * 2;
+    let px = ax;
+    let py = ay;
+    if (anchor === 'tr' || anchor === 'br') px = ax - w;
+    if (anchor === 'bl' || anchor === 'br') py = ay - h;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(px, py, w, h, radius);
+    } else {
+      ctx.rect(px, py, w, h);
+    }
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, px + w / 2, py + h / 2);
+  }
+
+  const quadrantPlugin = {
+    id: 'quadrant',
+    beforeDraw(chart) {
+      const { ctx, chartArea: { left, right, top, bottom, width, height } } = chart;
+      const midX = chart.scales.x.getPixelForValue(5);
+      const midY = chart.scales.y.getPixelForValue(5);
+      const colors = [
+        { x: left,  y: top,   w: midX - left,  h: midY - top,    c: 'rgba(16,185,129,.05)' },
+        { x: midX,  y: top,   w: right - midX, h: midY - top,    c: 'rgba(139,92,246,.05)' },
+        { x: left,  y: midY,  w: midX - left,  h: bottom - midY, c: 'rgba(59,130,246,.05)' },
+        { x: midX,  y: midY,  w: right - midX, h: bottom - midY, c: 'rgba(245,158,11,.05)' }
+      ];
+      ctx.save();
+      colors.forEach(q => {
+        ctx.fillStyle = q.c;
+        ctx.fillRect(q.x, q.y, q.w, q.h);
+      });
+      ctx.strokeStyle = 'rgba(255,255,255,.14)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(midX, top);
+      ctx.lineTo(midX, bottom);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(left, midY);
+      ctx.lineTo(right, midY);
+      ctx.stroke();
+      ctx.restore();
+    },
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea: { left, right, top, bottom } } = chart;
+      const inset = 10;
+      const pills = [
+        { text: 'Quick wins', anchor: 'tl', x: left + inset, y: top + inset, fill: 'rgba(16,185,129,.22)', stroke: 'rgba(16,185,129,.55)', color: '#D1FAE5' },
+        { text: 'Moonshots', anchor: 'tr', x: right - inset, y: top + inset, fill: 'rgba(139,92,246,.22)', stroke: 'rgba(139,92,246,.55)', color: '#EDE9FE' },
+        { text: 'Melhorias estruturais', anchor: 'bl', x: left + inset, y: bottom - inset, fill: 'rgba(59,130,246,.22)', stroke: 'rgba(59,130,246,.55)', color: '#DBEAFE' },
+        { text: 'Baixa prioridade', anchor: 'br', x: right - inset, y: bottom - inset, fill: 'rgba(245,158,11,.22)', stroke: 'rgba(245,158,11,.55)', color: '#FEF3C7' }
+      ];
+      ctx.save();
+      ctx.setLineDash([]);
+      pills.forEach(p => {
+        drawMatrixPill(ctx, p.text, p.x, p.y, p.anchor, p.fill, p.stroke, p.color);
+      });
+      chart.data.datasets.forEach((dataset, datasetIndex) => {
+        const meta = chart.getDatasetMeta(datasetIndex);
+        meta.data.forEach((element, pointIndex) => {
+          const raw = dataset.data[pointIndex];
+          if (!raw || !raw.rank) return;
+          const { x, y } = element;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = "700 12px 'Inter', system-ui, sans-serif";
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(raw.rank), x, y);
+        });
+      });
+      ctx.restore();
+    }
+  };
+
+  window.__matrixChart = new Chart(ctx, {
+    type: 'bubble',
+    plugins: [quadrantPlugin],
+    data: {
+      datasets: catConfig.map(c => ({
+        label: c.label,
+        data: datasets[c.key],
+        backgroundColor: c.bg,
+        borderColor: c.color,
+        borderWidth: 2,
+        hoverBackgroundColor: c.color + '44',
+        hoverBorderWidth: 2.5,
+        pointStyle: 'circle'
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      layout: { padding: { top: 4, right: 2, bottom: 12, left: 2 } },
+      scales: {
+        x: {
+          type: 'linear',
+          min: 0,
+          max: 10.4,
+          grid: { display: false },
+          border: { color: 'rgba(255,255,255,.12)' },
+          ticks: {
+            stepSize: 2,
+            includeBounds: true,
+            autoSkip: false,
+            color: '#4B5A72',
+            font: { family: "'Inter', sans-serif", size: 11 },
+            callback: v => Number(v) > 10 ? '' : v
+          },
+          title: { display: false }
+        },
+        y: {
+          type: 'linear',
+          min: 0,
+          max: 10.4,
+          grid: { display: false },
+          border: { color: 'rgba(255,255,255,.12)' },
+          ticks: {
+            stepSize: 2,
+            includeBounds: true,
+            autoSkip: false,
+            color: '#4B5A72',
+            font: { family: "'Inter', sans-serif", size: 11 },
+            callback: v => Number(v) > 10 ? '' : v
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#2b2b2b',
+          borderColor: 'rgba(255,255,255,.12)',
+          borderWidth: 1,
+          padding: 14,
+          cornerRadius: 10,
+          titleColor: '#F1F5F9',
+          titleFont: { family: "'Saira', sans-serif", size: 13, weight: '700' },
+          bodyColor: '#FFFFFF',
+          bodyFont: { family: "'Inter', sans-serif", size: 12 },
+          callbacks: {
+            title: items => items[0].raw.label,
+            label: item => [
+              `Prioridade: #${item.raw.rank} (${item.raw.priorityScore})`,
+              `Impacto: ${item.raw.y}/10`,
+              `Esforço: ${item.raw.x}/10`
+            ]
+          }
+        }
+      }
+    }
+  });
+}
+
+function refreshMatrixChartForPrint() {
+  if (window.__matrixChart && typeof window.__matrixChart.resize === 'function') {
+    window.__matrixChart.resize();
+  }
+}
+window.refreshMatrixChartForPrint = refreshMatrixChartForPrint;
+window.addEventListener('beforeprint', refreshMatrixChartForPrint);
+window.addEventListener('afterprint', refreshMatrixChartForPrint);
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
